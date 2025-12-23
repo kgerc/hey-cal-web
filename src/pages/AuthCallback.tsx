@@ -31,6 +31,8 @@ export default function AuthCallback() {
         const code = queryParams.get('code');
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
+        const providerToken = hashParams.get('provider_token');
+        const providerRefreshToken = hashParams.get('provider_refresh_token');
         const errorCode = queryParams.get('error');
         const errorDescription = queryParams.get('error_description');
 
@@ -38,8 +40,17 @@ export default function AuthCallback() {
         console.log('- code:', code);
         console.log('- access_token:', accessToken ? 'YES' : 'NO');
         console.log('- refresh_token:', refreshToken ? 'YES' : 'NO');
+        console.log('- provider_token:', providerToken ? 'YES' : 'NO');
+        console.log('- provider_refresh_token:', providerRefreshToken ? 'YES' : 'NO');
         console.log('- error:', errorCode);
         console.log('- error_description:', errorDescription);
+
+        if (accessToken) {
+          console.log('Access token details:');
+          console.log('- Length:', accessToken.length);
+          console.log('- First 20 chars:', accessToken.substring(0, 20));
+          console.log('- Looks like JWT?', accessToken.includes('.'));
+        }
 
         // Check for OAuth errors
         if (errorCode) {
@@ -62,6 +73,41 @@ export default function AuthCallback() {
             console.log("✓ Session created successfully!");
             console.log("User email:", data.session.user.email);
             console.log("User ID:", data.session.user.id);
+            console.log("Provider token available:", !!data.session.provider_token);
+            console.log("Provider refresh token available:", !!data.session.provider_refresh_token);
+
+            // CRITICAL: Supabase session.provider_token is the Google OAuth token
+            // This is ONLY available immediately after OAuth, we MUST save it now
+            if (data.session.provider_token) {
+              console.log('✓ Found provider_token (Google OAuth token)!');
+              console.log('Saving Google OAuth tokens to connected_accounts...');
+              console.log('Token details:');
+              console.log('- Token length:', data.session.provider_token.length);
+              console.log('- Token prefix:', data.session.provider_token.substring(0, 20));
+
+              const { error: saveError } = await supabase
+                .from('connected_accounts')
+                .upsert({
+                  user_id: data.session.user.id,
+                  provider: 'google',
+                  provider_account_id: data.session.user.id,
+                  access_token: data.session.provider_token,
+                  refresh_token: data.session.provider_refresh_token,
+                  scope: 'calendar calendar.events',
+                  is_primary: true,
+                });
+
+              if (saveError) {
+                console.error('Failed to save OAuth tokens:', saveError);
+                toast.warning("Logged in, but failed to save calendar connection");
+              } else {
+                console.log('✓ Google OAuth tokens saved successfully!');
+              }
+            } else {
+              console.error('⚠⚠⚠ NO provider_token in session after code exchange!');
+              console.error('This means we cannot access Google Calendar API');
+              console.error('Session data:', Object.keys(data.session));
+            }
 
             toast.success("Successfully authenticated!");
 
@@ -90,6 +136,35 @@ export default function AuthCallback() {
 
           if (data.session) {
             console.log("✓ Session set successfully!");
+
+            // Save Google OAuth tokens to connected_accounts table
+            // IMPORTANT: Use provider_token (real Google token), not access_token (Supabase JWT)
+            if (providerToken) {
+              console.log('Saving REAL Google OAuth tokens to connected_accounts...');
+              console.log('Provider token prefix:', providerToken.substring(0, 20));
+
+              const { error: saveError } = await supabase
+                .from('connected_accounts')
+                .upsert({
+                  user_id: data.session.user.id,
+                  provider: 'google',
+                  provider_account_id: data.session.user.id,
+                  access_token: providerToken,  // Real Google token!
+                  refresh_token: providerRefreshToken,
+                  scope: 'calendar calendar.events',
+                  is_primary: true,
+                });
+
+              if (saveError) {
+                console.error('Failed to save OAuth tokens:', saveError);
+                toast.warning("Logged in, but failed to save calendar connection");
+              } else {
+                console.log('✓ Google OAuth tokens saved successfully!');
+              }
+            } else {
+              console.warn('⚠ No provider_token found in URL hash');
+            }
+
             toast.success("Successfully authenticated!");
 
             await new Promise(resolve => setTimeout(resolve, 2000));

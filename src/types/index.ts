@@ -10,11 +10,10 @@ export interface Event {
   location?: string;
   event_type?: "meeting" | "task" | "reminder" | "other";
   status?: "confirmed" | "tentative" | "cancelled";
-  all_day?: boolean;
-  recurrence_rule?: string;
+  is_all_day?: boolean;
+  recurrence?: string;
   google_event_id?: string;
   facebook_event_id?: string;
-  attendee_count?: number;
   created_at?: string;
   updated_at?: string;
 }

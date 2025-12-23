@@ -13,7 +13,7 @@ const eventSchema = z.object({
   location: z.string().optional(),
   event_type: z.enum(["meeting", "task", "reminder", "other"]).optional(),
   status: z.enum(["confirmed", "tentative", "cancelled"]).optional(),
-  all_day: z.boolean().optional(),
+  is_all_day: z.boolean().optional(),
 }).refine(
   (data) => {
     const start = new Date(data.start_time);
@@ -59,7 +59,7 @@ export default function EventModal({
           location: event.location || "",
           event_type: event.event_type || "meeting",
           status: event.status || "confirmed",
-          all_day: event.all_day || false,
+          is_all_day: event.is_all_day || false,
         }
       : {
           title: "",
@@ -73,7 +73,7 @@ export default function EventModal({
           location: "",
           event_type: "meeting",
           status: "confirmed",
-          all_day: false,
+          is_all_day: false,
         },
   });
 

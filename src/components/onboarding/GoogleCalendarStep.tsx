@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
+import { initiateGoogleCalendarAuth } from "@/lib/googleOAuth";
 
 interface GoogleCalendarStepProps {
   onNext: () => void;
@@ -14,34 +14,34 @@ export default function GoogleCalendarStep({
   onNext,
   onBack,
   onSkip,
-  onConnect,
 }: GoogleCalendarStepProps) {
-  const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Check if user already has Google OAuth connected with calendar scopes
+    // Check if Google Calendar is already connected
     const checkConnection = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (session?.provider_token) {
-          // User has OAuth token - check if it's Google with calendar scopes
+        if (session?.user) {
+          // Check if we have Google Calendar tokens saved
           const { data: accounts } = await supabase
             .from('connected_accounts')
-            .select('*')
+            .select('access_token')
             .eq('user_id', session.user.id)
             .eq('provider', 'google')
-            .single();
+            .maybeSingle();
 
-          if (accounts) {
-            console.log('Google account already connected');
+          if (accounts?.access_token) {
+            console.log('Google Calendar already connected');
             setIsConnected(true);
+          } else {
+            console.log('Google Calendar not connected yet');
           }
         }
       } catch (error) {
-        console.log('No existing Google connection');
+        console.log('Error checking Google Calendar connection:', error);
       } finally {
         setIsChecking(false);
       }
@@ -50,44 +50,12 @@ export default function GoogleCalendarStep({
     checkConnection();
   }, []);
 
-  const handleConnect = async () => {
-    try {
-      setIsConnecting(true);
+  const handleConnect = () => {
+    // Save return path for after OAuth callback
+    sessionStorage.setItem('google_calendar_return_to', '/onboarding');
 
-      // Save Google OAuth token to connected_accounts table
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error("Not authenticated");
-      }
-
-      // Store the connection
-      const { error: insertError } = await supabase
-        .from('connected_accounts')
-        .upsert({
-          user_id: session.user.id,
-          provider: 'google',
-          provider_account_id: session.user.id,
-          access_token: session.provider_token,
-          refresh_token: session.provider_refresh_token,
-          scope: 'calendar calendar.events',
-          is_primary: true,
-        });
-
-      if (insertError) {
-        console.error('Failed to save connection:', insertError);
-        throw insertError;
-      }
-
-      setIsConnected(true);
-      onConnect();
-      toast.success("Google Calendar connected successfully!");
-    } catch (error: any) {
-      console.error('Connection error:', error);
-      toast.error(error.message || "Failed to connect Google Calendar");
-    } finally {
-      setIsConnecting(false);
-    }
+    // Initiate Google OAuth flow for Calendar access
+    initiateGoogleCalendarAuth();
   };
 
   const handleContinue = () => {
@@ -111,11 +79,13 @@ export default function GoogleCalendarStep({
         <Calendar className="h-10 w-10 text-primary" />
       </div>
 
-      <h2 className="mb-4 text-3xl font-bold">Google Calendar Connected!</h2>
+      <h2 className="mb-4 text-3xl font-bold">
+        {isConnected ? "Google Calendar Connected!" : "Connect Google Calendar"}
+      </h2>
       <p className="mb-8 text-lg text-muted-foreground">
         {isConnected
           ? "Your Google Calendar is already connected and ready to use."
-          : "You've logged in with Google. Let's confirm calendar access."}
+          : "Connect your Google Calendar to enable two-way sync with your events."}
       </p>
 
       <div className="mb-8 rounded-lg border border-border bg-card p-6 text-left">
@@ -140,23 +110,34 @@ export default function GoogleCalendarStep({
         </ul>
       </div>
 
-      <div className="mb-8 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
-        <div className="flex gap-3">
-          <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-          <div className="text-left text-sm text-green-800 dark:text-green-200">
-            <strong className="font-semibold">You're all set!</strong> You logged in with Google,
-            which automatically gave us calendar access. We'll use this to sync your events.
+      {!isConnected ? (
+        <div className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+          <div className="flex gap-3">
+            <Calendar className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+            <div className="text-left text-sm text-blue-800 dark:text-blue-200">
+              <strong className="font-semibold">One more step!</strong> Click below to authorize
+              calendar access. You'll be redirected to Google to grant permissions.
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="mb-8 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
+          <div className="flex gap-3">
+            <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+            <div className="text-left text-sm text-green-800 dark:text-green-200">
+              <strong className="font-semibold">You're all set!</strong> Your Google Calendar is
+              connected and ready to sync events.
+            </div>
+          </div>
+        </div>
+      )}
 
       {!isConnected && (
         <button
           onClick={handleConnect}
-          disabled={isConnecting}
-          className="mb-4 w-full rounded-lg bg-primary px-6 py-3 font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="mb-4 w-full rounded-lg bg-primary px-6 py-3 font-semibold text-white transition-opacity hover:opacity-90"
         >
-          {isConnecting ? "Saving..." : "Confirm Connection"}
+          Connect Google Calendar
         </button>
       )}
 

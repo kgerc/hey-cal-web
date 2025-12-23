@@ -11,6 +11,7 @@ import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Onboarding from "@/pages/Onboarding";
 import AuthCallback from "@/pages/AuthCallback";
+import GoogleCalendarCallback from "@/pages/GoogleCalendarCallback";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -87,6 +88,7 @@ function App() {
             }
           />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/google-calendar-callback" element={<GoogleCalendarCallback />} />
           <Route
             path="/onboarding"
             element={

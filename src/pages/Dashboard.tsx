@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/stores/authStore";
 import type { Event } from "@/types";
@@ -12,6 +12,7 @@ import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import QuickActions from "@/components/dashboard/QuickActions";
 import EventModal from "@/components/dashboard/EventModal";
 import { toast } from "sonner";
+import { syncAllEvents, exportEventToGoogle } from "@/services/sync";
 
 type ViewType = "day" | "week" | "month";
 
@@ -23,6 +24,29 @@ export default function Dashboard() {
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<Date | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Disabled auto-sync - use manual sync button instead to prevent infinite loops
+  // useEffect(() => {
+  //   const performInitialSync = async () => {
+  //     if (user?.id) {
+  //       console.log("Dashboard: Starting initial sync...");
+  //       setIsSyncing(true);
+  //       try {
+  //         const result = await syncAllEvents();
+  //         if (result.success) {
+  //           queryClient.invalidateQueries({ queryKey: ["events"] });
+  //           console.log("Initial sync complete:", result);
+  //         }
+  //       } catch (error) {
+  //         console.error("Initial sync failed:", error);
+  //       } finally {
+  //         setIsSyncing(false);
+  //       }
+  //     }
+  //   };
+  //   performInitialSync();
+  // }, [user?.id]);
 
   // Fetch events
   const { data: events = [], isLoading } = useQuery({
@@ -42,6 +66,29 @@ export default function Dashboard() {
     enabled: !!user?.id,
   });
 
+  // Sync with Google Calendar
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncAllEvents();
+
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
+        toast.success(
+          `Synced! Imported: ${result.imported}, Updated: ${result.updated}`
+        );
+      } else {
+        toast.error("Sync failed. Check console for details.");
+        console.error("Sync errors:", result.errors);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sync with Google Calendar");
+      console.error("Sync error:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Create event mutation
   const createEventMutation = useMutation({
     mutationFn: async (eventData: any) => {
@@ -57,6 +104,15 @@ export default function Dashboard() {
         .single();
 
       if (error) throw error;
+
+      // Export to Google Calendar
+      try {
+        await exportEventToGoogle(data.id);
+      } catch (exportError) {
+        console.error("Failed to export to Google Calendar:", exportError);
+        toast.warning("Event created locally but not synced to Google Calendar");
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -79,6 +135,15 @@ export default function Dashboard() {
         .single();
 
       if (error) throw error;
+
+      // Export to Google Calendar
+      try {
+        await exportEventToGoogle(id);
+      } catch (exportError) {
+        console.error("Failed to sync to Google Calendar:", exportError);
+        toast.warning("Event updated locally but not synced to Google Calendar");
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -177,6 +242,17 @@ export default function Dashboard() {
                   <ChevronRight className="h-5 w-5" />
                 </button>
               </div>
+
+              {/* Sync button */}
+              <button
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+                title="Sync with Google Calendar"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+                {isSyncing ? "Syncing..." : "Sync"}
+              </button>
             </div>
 
             {/* View switcher */}

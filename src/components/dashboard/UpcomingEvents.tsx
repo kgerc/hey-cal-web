@@ -100,13 +100,13 @@ export default function UpcomingEvents({
                   </div>
                 )}
 
-                {/* Attendees count */}
-                {event.attendee_count && event.attendee_count > 0 && (
+                {/* Attendees count - TODO: Implement when event_attendees table is synced */}
+                {/* {event.attendee_count && event.attendee_count > 0 && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
                     <span>{event.attendee_count} attendee{event.attendee_count !== 1 ? "s" : ""}</span>
                   </div>
-                )}
+                )} */}
 
                 {/* Description preview */}
                 {event.description && (
