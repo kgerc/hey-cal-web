@@ -155,6 +155,24 @@ export default function Dashboard() {
     },
   });
 
+  // Delete event mutation
+  const deleteEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      // Import deleteEventEverywhere from sync.ts
+      const { deleteEventEverywhere } = await import("@/services/sync");
+      await deleteEventEverywhere(eventId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      toast.success("Event deleted successfully!");
+      setIsEventModalOpen(false);
+      setSelectedEvent(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete event");
+    },
+  });
+
   // Navigation handlers
   const handlePrevious = () => {
     if (viewType === "day") {
@@ -349,6 +367,7 @@ export default function Dashboard() {
           setSelectedTimeSlot(null);
         }}
         onSave={handleSaveEvent}
+        onDelete={selectedEvent ? () => deleteEventMutation.mutate(selectedEvent.id) : undefined}
         event={selectedEvent}
         defaultDate={selectedTimeSlot || undefined}
       />

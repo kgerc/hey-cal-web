@@ -15,7 +15,9 @@ export default function DayView({
   onEventClick,
   onTimeSlotClick,
 }: DayViewProps) {
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  // Start at 8 AM and show 14 hours (8 AM to 10 PM)
+  const startHour = 8;
+  const hours = Array.from({ length: 14 }, (_, i) => startHour + i);
   const dayStart = startOfDay(date);
 
   const getEventsForHour = (hour: number) => {

@@ -8,12 +8,13 @@ export interface Event {
   end_time: string;
   timezone?: string;
   location?: string;
-  event_type?: "meeting" | "task" | "reminder" | "other";
   status?: "confirmed" | "tentative" | "cancelled";
   is_all_day?: boolean;
   recurrence?: string;
+  color?: string;
+  calendar_id?: string;
   google_event_id?: string;
-  facebook_event_id?: string;
+  metadata?: Record<string, any>;
   created_at?: string;
   updated_at?: string;
 }

@@ -1,8 +1,9 @@
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Calendar, Clock, MapPin, FileText } from "lucide-react";
+import { X, Calendar, Clock, MapPin, FileText, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { useEffect } from "react";
 import type { Event } from "@/types";
 
 const eventSchema = z.object({
@@ -11,7 +12,6 @@ const eventSchema = z.object({
   start_time: z.string().min(1, "Start time is required"),
   end_time: z.string().min(1, "End time is required"),
   location: z.string().optional(),
-  event_type: z.enum(["meeting", "task", "reminder", "other"]).optional(),
   status: z.enum(["confirmed", "tentative", "cancelled"]).optional(),
   is_all_day: z.boolean().optional(),
 }).refine(
@@ -32,6 +32,7 @@ interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: EventFormData) => Promise<void>;
+  onDelete?: () => void;
   event?: Event | null;
   defaultDate?: Date;
 }
@@ -40,6 +41,7 @@ export default function EventModal({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   event,
   defaultDate,
 }: EventModalProps) {
@@ -50,32 +52,36 @@ export default function EventModal({
     reset,
   } = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
-    defaultValues: event
-      ? {
-          title: event.title,
-          description: event.description || "",
-          start_time: format(new Date(event.start_time), "yyyy-MM-dd'T'HH:mm"),
-          end_time: format(new Date(event.end_time), "yyyy-MM-dd'T'HH:mm"),
-          location: event.location || "",
-          event_type: event.event_type || "meeting",
-          status: event.status || "confirmed",
-          is_all_day: event.is_all_day || false,
-        }
-      : {
-          title: "",
-          description: "",
-          start_time: defaultDate
-            ? format(defaultDate, "yyyy-MM-dd'T'HH:mm")
-            : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-          end_time: defaultDate
-            ? format(new Date(defaultDate.getTime() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm")
-            : format(new Date(Date.now() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm"),
-          location: "",
-          event_type: "meeting",
-          status: "confirmed",
-          is_all_day: false,
-        },
   });
+
+  // Update form values when event or defaultDate changes
+  useEffect(() => {
+    if (event) {
+      reset({
+        title: event.title,
+        description: event.description || "",
+        start_time: format(new Date(event.start_time), "yyyy-MM-dd'T'HH:mm"),
+        end_time: format(new Date(event.end_time), "yyyy-MM-dd'T'HH:mm"),
+        location: event.location || "",
+        status: event.status || "confirmed",
+        is_all_day: event.is_all_day || false,
+      });
+    } else {
+      reset({
+        title: "",
+        description: "",
+        start_time: defaultDate
+          ? format(defaultDate, "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        end_time: defaultDate
+          ? format(new Date(defaultDate.getTime() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(Date.now() + 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm"),
+        location: "",
+        status: "confirmed",
+        is_all_day: false,
+      });
+    }
+  }, [event, defaultDate, reset]);
 
   const onSubmit: SubmitHandler<EventFormData> = async (data) => {
     try {
@@ -252,21 +258,35 @@ export default function EventModal({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded-lg border border-border px-6 py-2 font-semibold transition-colors hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="gradient-primary rounded-lg px-6 py-2 font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {isSubmitting ? "Saving..." : event ? "Update Event" : "Create Event"}
-            </button>
+          <div className="flex justify-between gap-3 pt-4 border-t border-border">
+            {/* Delete button - only show when editing existing event */}
+            {event && onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="flex items-center gap-2 rounded-lg border border-red-500 px-4 py-2 font-semibold text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+            )}
+
+            <div className="flex items-center gap-3 ml-auto">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-lg border border-border px-6 py-2 font-semibold transition-colors hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="gradient-primary rounded-lg px-6 py-2 font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {isSubmitting ? "Saving..." : event ? "Update Event" : "Create Event"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
