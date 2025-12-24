@@ -1,15 +1,17 @@
-import { Plus, Bell, Settings, Calendar, Mail, MessageSquare, Zap } from "lucide-react";
+import { Plus, Bell, Settings, Calendar, Mail, MessageSquare, Zap, LogOut } from "lucide-react";
 
 interface QuickActionsProps {
   onCreateEvent: () => void;
   onViewNotifications: () => void;
   onSettings: () => void;
+  onLogout?: () => void;
 }
 
 export default function QuickActions({
   onCreateEvent,
   onViewNotifications,
   onSettings,
+  onLogout,
 }: QuickActionsProps) {
   const quickActions = [
     {
@@ -65,6 +67,7 @@ export default function QuickActions({
         <h2 className="text-lg font-semibold">Quick Actions</h2>
       </div>
 
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* Action buttons */}
         <div className="space-y-3">
@@ -172,6 +175,26 @@ export default function QuickActions({
           </div>
         </button>
       </div>
+
+      {/* Logout button - Fixed at bottom */}
+      {onLogout && (
+        <div className="border-t border-border p-4">
+          <button
+            onClick={onLogout}
+            className="w-full rounded-lg border border-red-200 dark:border-red-900 bg-background p-3 text-left hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <LogOut className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <div>
+                <div className="font-medium text-sm text-red-600 dark:text-red-400">Logout</div>
+                <div className="text-xs text-red-600/70 dark:text-red-400/70">
+                  Sign out of your account
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

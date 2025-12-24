@@ -5,6 +5,7 @@ import { X, Calendar, Clock, MapPin, FileText, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useEffect } from "react";
 import type { Event } from "@/types";
+import ShareEventButton from "./ShareEventButton";
 
 const eventSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
@@ -185,19 +186,6 @@ export default function EventModal({
             </div>
           </div>
 
-          {/* All day checkbox */}
-          <div className="flex items-center gap-2">
-            <input
-              {...register("all_day")}
-              type="checkbox"
-              id="all_day"
-              className="rounded border-border focus:ring-2 focus:ring-primary"
-            />
-            <label htmlFor="all_day" className="text-sm font-medium cursor-pointer">
-              All day event
-            </label>
-          </div>
-
           {/* Location */}
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -212,20 +200,6 @@ export default function EventModal({
               placeholder="Meeting room, address, or video call link"
               className="w-full rounded-lg border border-border bg-background px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             />
-          </div>
-
-          {/* Event Type */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Event Type</label>
-            <select
-              {...register("event_type")}
-              className="w-full rounded-lg border border-border bg-background px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="meeting">Meeting</option>
-              <option value="task">Task</option>
-              <option value="reminder">Reminder</option>
-              <option value="other">Other</option>
-            </select>
           </div>
 
           {/* Status */}
@@ -256,6 +230,11 @@ export default function EventModal({
               className="w-full rounded-lg border border-border bg-background px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
+
+          {/* Share Event - only show for existing events */}
+          {event && (
+            <ShareEventButton event={event} />
+          )}
 
           {/* Actions */}
           <div className="flex justify-between gap-3 pt-4 border-t border-border">

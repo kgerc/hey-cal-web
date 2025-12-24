@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/stores/authStore";
 import type { Event } from "@/types";
@@ -17,7 +18,8 @@ import { syncAllEvents, exportEventToGoogle } from "@/services/sync";
 type ViewType = "day" | "week" | "month";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>("week");
@@ -127,9 +129,16 @@ export default function Dashboard() {
   // Update event mutation
   const updateEventMutation = useMutation({
     mutationFn: async ({ id, ...eventData }: any) => {
+      // Preserve important fields that aren't in the form
+      const updateData = {
+        ...eventData,
+        // Ensure timezone is preserved (form doesn't include it)
+        timezone: eventData.timezone || selectedEvent?.timezone || "UTC",
+      };
+
       const { data, error } = await supabase
         .from("events")
-        .update(eventData)
+        .update(updateData)
         .eq("id", id)
         .select()
         .single();
@@ -212,18 +221,40 @@ export default function Dashboard() {
   };
 
   const handleSaveEvent = async (eventData: any) => {
+    // Convert datetime-local to ISO string with timezone
+    // datetime-local returns: "2025-01-15T14:30" (no timezone)
+    // We need: "2025-01-15T14:30:00.000Z" (ISO with timezone)
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    const processedData = {
+      ...eventData,
+      start_time: new Date(eventData.start_time).toISOString(),
+      end_time: new Date(eventData.end_time).toISOString(),
+      timezone: eventData.timezone || browserTimezone || "UTC",
+    };
+
     if (selectedEvent) {
       await updateEventMutation.mutateAsync({
         id: selectedEvent.id,
-        ...eventData,
+        ...processedData,
       });
     } else {
-      await createEventMutation.mutateAsync(eventData);
+      await createEventMutation.mutateAsync(processedData);
     }
   };
 
   const handleTimeSlotClick = (date: Date) => {
     handleCreateEvent(date);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to logout");
+    }
   };
 
   return (
@@ -355,6 +386,7 @@ export default function Dashboard() {
           onCreateEvent={() => handleCreateEvent()}
           onViewNotifications={() => toast.info("Notifications coming soon!")}
           onSettings={() => toast.info("Settings coming soon!")}
+          onLogout={handleLogout}
         />
       </div>
 

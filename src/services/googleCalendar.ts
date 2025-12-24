@@ -57,8 +57,9 @@ async function getAccessToken(): Promise<string> {
   console.log("Fetching Google token from Edge Function for user:", session.user.id);
 
   try {
+    // Use refresh-google-token endpoint which auto-refreshes if expired
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-google-token`,
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refresh-google-token`,
       {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -80,19 +81,19 @@ async function getAccessToken(): Promise<string> {
     const responseData = await response.json();
     console.log("Edge Function response:", responseData);
 
-    const { access_token, refresh_token, expires_at } = responseData;
+    const { access_token, expires_at } = responseData;
 
     if (!access_token) {
       console.error("Edge Function response missing access_token:", responseData);
       throw new Error("Edge Function did not return an access token");
     }
 
-    console.log("✓ Google token retrieved from Edge Function");
+    console.log("✓ Google token retrieved (auto-refreshed if expired)");
     console.log("- Token length:", access_token.length);
     console.log("- Token prefix:", access_token.substring(0, 20));
     console.log("- Looks like Google token?", access_token.startsWith('ya29.'));
+    console.log("- Expires at:", expires_at);
 
-    // Note: Token caching removed - Edge Function is the source of truth
     return access_token;
   } catch (error: any) {
     console.error("Failed to get Google token from Edge Function:", error);
@@ -205,7 +206,20 @@ async function makeGoogleCalendarRequest(
     );
   }
 
-  return response.json();
+  // Check if response has content before parsing JSON
+  // DELETE requests return 204 No Content with empty body
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    return null;
+  }
+
+  // Check if response has a body
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+
+  return JSON.parse(text);
 }
 
 /**
